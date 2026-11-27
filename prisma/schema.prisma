@@ -1,0 +1,313 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+enum Role {
+  DONOR
+  ORGANIZATION
+  NGO
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum ResourceType {
+  DONATION
+  LOAN
+}
+
+enum ItemCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+}
+
+enum ResourceStatus {
+  AVAILABLE
+  RESERVED
+  COMPLETED
+  ARCHIVED
+}
+
+enum ReservationStatus {
+  PENDING
+  APPROVED
+  ACTIVE
+  RETURNED
+  CANCELLED
+  COMPLETED
+}
+
+enum UrgencyLevel {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RequirementStatus {
+  OPEN
+  PARTIALLY_FULFILLED
+  COMPLETED
+  CANCELLED
+}
+
+enum DeliveryType {
+  DROP_OFF
+  PICKUP_REQUEST
+}
+
+enum FulfillmentStatus {
+  PLEDGED
+  SHIPPED
+  RECEIVED
+  VERIFIED
+  CANCELLED
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          Role      @default(DONOR)
+  phone         String?
+  bio           String?   @db.Text
+  city          String?
+  address       String?
+  verified      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  ngoProfile    NGOProfile?
+  resources     Resource[]
+  reservations  Reservation[]
+  fulfillments  RequirementFulfillment[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model NGOProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  organizationName   String
+  registrationNumber String
+  missionStatement   String             @db.Text
+  website            String?
+  contactPerson      String
+  verificationStatus VerificationStatus @default(PENDING)
+  verificationDocUrl String?
+  establishedYear    Int?
+  sector             String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requirements ResourceRequirement[]
+
+  @@index([verificationStatus])
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  icon        String?
+  createdAt   DateTime @default(now())
+
+  resources    Resource[]
+  requirements ResourceRequirement[]
+}
+
+model Resource {
+  id               String         @id @default(cuid())
+  title            String
+  description      String         @db.Text
+  type             ResourceType
+  condition        ItemCondition
+  totalQuantity    Int            @default(1)
+  availableQuantity Int           @default(1)
+  images           Json           // string array of image URLs
+  categoryId       String
+  ownerId          String
+  status           ResourceStatus @default(AVAILABLE)
+  pickupAddress    String
+  city             String
+  postalCode       String?
+  latitude         Float?
+  longitude        Float?
+  loanDurationDays Int?
+  depositRequired  Boolean        @default(false)
+  depositNote      String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  owner        User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  reservations Reservation[]
+
+  @@index([categoryId])
+  @@index([ownerId])
+  @@index([status])
+  @@index([type])
+  @@index([city])
+}
+
+model Reservation {
+  id           String            @id @default(cuid())
+  resourceId   String
+  reservedById String
+  quantity     Int               @default(1)
+  startDate    DateTime          @default(now())
+  endDate      DateTime?
+  status       ReservationStatus @default(PENDING)
+  purposeNote  String?           @db.Text
+  returnedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  reservedBy User     @relation(fields: [reservedById], references: [id], onDelete: Cascade)
+
+  @@index([resourceId])
+  @@index([reservedById])
+  @@index([status])
+}
+
+model ResourceRequirement {
+  id                String            @id @default(cuid())
+  title             String
+  description       String            @db.Text
+  ngoProfileId      String
+  categoryId        String
+  urgency           UrgencyLevel      @default(HIGH)
+  targetQuantity    Int
+  collectedQuantity Int               @default(0)
+  unit              String            @default("items")
+  status            RequirementStatus @default(OPEN)
+  deadline          DateTime?
+  deliveryAddress   String
+  city              String
+  latitude          Float?
+  longitude         Float?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  ngoProfile   NGOProfile               @relation(fields: [ngoProfileId], references: [id], onDelete: Cascade)
+  category     Category                 @relation(fields: [categoryId], references: [id])
+  fulfillments RequirementFulfillment[]
+
+  @@index([ngoProfileId])
+  @@index([categoryId])
+  @@index([status])
+  @@index([urgency])
+  @@index([city])
+}
+
+model RequirementFulfillment {
+  id               String            @id @default(cuid())
+  requirementId    String
+  donorId          String
+  quantityPledged  Int
+  quantityReceived Int               @default(0)
+  deliveryType     DeliveryType      @default(DROP_OFF)
+  status           FulfillmentStatus @default(PLEDGED)
+  notes            String?           @db.Text
+  trackingInfo     String?
+  verifiedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  requirement ResourceRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  donor       User                @relation(fields: [donorId], references: [id], onDelete: Cascade)
+
+  @@index([requirementId])
+  @@index([donorId])
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([entityType, entityId])
+}
