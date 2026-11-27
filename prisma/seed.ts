@@ -93,3 +93,34 @@ async function main() {
     },
   });
 
+  // NGO 1: Hope Horizon Foundation
+  const ngoUser1 = await prisma.user.upsert({
+    where: { email: "ngo@hopefoundation.org" },
+    update: {},
+    create: {
+      name: "Dr. Ananya Roy",
+      email: "ngo@hopefoundation.org",
+      passwordHash,
+      role: Role.NGO,
+      city: "New Delhi",
+      phone: "+91 98711 55660",
+      address: "Plot 12, Institutional Area, Vasant Kunj",
+      verified: true,
+    },
+  });
+
+  const ngoProfile1 = await prisma.nGOProfile.upsert({
+    where: { userId: ngoUser1.id },
+    update: {},
+    create: {
+      userId: ngoUser1.id,
+      organizationName: "Hope Horizon Foundation",
+      registrationNumber: "80G-DEL-2018-4491",
+      missionStatement: "Providing emergency winter relief, shelter essentials, and healthcare mobility to homeless communities across Northern India.",
+      contactPerson: "Dr. Ananya Roy",
+      sector: "Disaster Relief & Shelters",
+      establishedYear: 2018,
+      website: "https://hopehorizon.org",
+      verificationStatus: VerificationStatus.VERIFIED,
+    },
+  });
