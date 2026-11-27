@@ -124,3 +124,37 @@ async function main() {
       verificationStatus: VerificationStatus.VERIFIED,
     },
   });
+
+  // NGO 2: Care India Community Aid
+  const ngoUser2 = await prisma.user.upsert({
+    where: { email: "relief@careindia.org" },
+    update: {},
+    create: {
+      name: "Farhan Siddiqui",
+      email: "relief@careindia.org",
+      passwordHash,
+      role: Role.NGO,
+      city: "Mumbai",
+      phone: "+91 98200 88990",
+      address: "24 Bandra Kurla Complex, Bandra East",
+      verified: true,
+    },
+  });
+
+  const ngoProfile2 = await prisma.nGOProfile.upsert({
+    where: { userId: ngoUser2.id },
+    update: {},
+    create: {
+      userId: ngoUser2.id,
+      organizationName: "Care India Community Aid",
+      registrationNumber: "FCRA-MH-2020-7712",
+      missionStatement: "Bridging the digital divide by supplying schools and orphanages with computers, educational tools, and health equipment.",
+      contactPerson: "Farhan Siddiqui",
+      sector: "Child Welfare & Education",
+      establishedYear: 2020,
+      website: "https://careindia.org",
+      verificationStatus: VerificationStatus.VERIFIED,
+    },
+  });
+
+  console.log("✓ Demo Users and NGOs seeded");
